@@ -1,14 +1,22 @@
-import React from 'react'
-import PropTypes from 'prop-types'
+import React, {SFC} from 'react'
+
 import {CHANGES, RELATIVE_OPERATORS, SHIFTS} from 'src/kapacitor/constants'
-import Dropdown from 'shared/components/Dropdown'
+import Dropdown from 'src/shared/components/Dropdown'
+
+import {AlertRule} from 'src/types'
 
 const mapToItems = (arr, type) => arr.map(text => ({text, type}))
 const changes = mapToItems(CHANGES, 'change')
 const shifts = mapToItems(SHIFTS, 'shift')
 const operators = mapToItems(RELATIVE_OPERATORS, 'operator')
 
-const Relative = ({
+interface Props {
+  onRuleTypeInputChange: () => void
+  onDropdownChange: () => void
+  rule: AlertRule
+}
+
+const Relative: SFC<Props> = ({
   onRuleTypeInputChange,
   onDropdownChange,
   rule: {
@@ -46,7 +54,7 @@ const Relative = ({
         style={{width: '160px', marginLeft: '6px'}}
         type="text"
         name="lower"
-        spellCheck="false"
+        spellCheck={false}
         value={value}
         onChange={onRuleTypeInputChange}
         required={true}
@@ -55,20 +63,5 @@ const Relative = ({
     {change === CHANGES[1] ? <p>%</p> : null}
   </div>
 )
-
-const {shape, string, func} = PropTypes
-
-Relative.propTypes = {
-  onRuleTypeInputChange: func.isRequired,
-  onDropdownChange: func.isRequired,
-  rule: shape({
-    values: shape({
-      change: string,
-      shift: string,
-      operator: string,
-      value: string,
-    }),
-  }),
-}
 
 export default Relative

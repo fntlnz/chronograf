@@ -224,7 +224,7 @@ export interface RuleMessageTemplate {
   time: RuleMessage
 }
 
-interface RuleMessage {
+export interface RuleMessage {
   label: string
   text: string
 }

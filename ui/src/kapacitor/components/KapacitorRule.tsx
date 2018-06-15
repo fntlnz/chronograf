@@ -1,20 +1,20 @@
 import React, {Component} from 'react'
-import PropTypes from 'prop-types'
 import {connect} from 'react-redux'
 import {bindActionCreators} from 'redux'
+import {InjectedRouter} from 'react-router'
 
 import NameSection from 'src/kapacitor/components/NameSection'
 import ValuesSection from 'src/kapacitor/components/ValuesSection'
 import RuleHeader from 'src/kapacitor/components/RuleHeader'
 import RuleHandlers from 'src/kapacitor/components/RuleHandlers'
 import RuleMessage from 'src/kapacitor/components/RuleMessage'
-import FancyScrollbar from 'shared/components/FancyScrollbar'
+import FancyScrollbar from 'src/shared/components/FancyScrollbar'
 
 import {createRule, editRule} from 'src/kapacitor/apis'
-import buildInfluxQLQuery from 'utils/influxql'
-import {timeRanges} from 'shared/data/timeRanges'
+import buildInfluxQLQuery from 'src/utils/influxql'
+import {timeRanges} from 'src/shared/data/timeRanges'
 import {DEFAULT_RULE_ID} from 'src/kapacitor/constants'
-import {notify as notifyAction} from 'shared/actions/notifications'
+import {notify as notifyAction} from 'src/shared/actions/notifications'
 
 import {
   notifyAlertRuleCreated,
@@ -24,11 +24,41 @@ import {
   notifyAlertRuleRequiresQuery,
   notifyAlertRuleRequiresConditionValue,
   notifyAlertRuleDeadmanInvalid,
-} from 'shared/copy/notifications'
+} from 'src/shared/copy/notifications'
 import {ErrorHandling} from 'src/shared/decorators/errors'
 
+import {
+  Source,
+  AlertRule,
+  Notification,
+  Kapacitor,
+  QueryConfig,
+  TimeRange,
+} from 'src/types'
+import {Handler} from 'src/types/kapacitor'
+import {KapacitorQueryConfigActions} from 'src/types/actions'
+
+interface Props {
+  source: Source
+  rule: AlertRule
+  query: QueryConfig
+  queryConfigs: QueryConfig[]
+  queryConfigActions: KapacitorQueryConfigActions
+  ruleActions: any
+  notify: (message: Notification) => void
+  ruleID: string
+  handlersFromConfig: Handler[]
+  router: InjectedRouter
+  kapacitor: Kapacitor
+  configLink: string
+}
+
+interface State {
+  timeRange: TimeRange
+}
+
 @ErrorHandling
-class KapacitorRule extends Component {
+class KapacitorRule extends Component<Props, State> {
   constructor(props) {
     super(props)
     this.state = {
@@ -36,137 +66,7 @@ class KapacitorRule extends Component {
     }
   }
 
-  handleChooseTimeRange = ({lower}) => {
-    const timeRange = timeRanges.find(range => range.lower === lower)
-    this.setState({timeRange})
-  }
-
-  handleCreate = pathname => {
-    const {notify, queryConfigs, rule, source, router, kapacitor} = this.props
-
-    const newRule = Object.assign({}, rule, {
-      query: queryConfigs[rule.queryID],
-    })
-    delete newRule.queryID
-
-    createRule(kapacitor, newRule)
-      .then(() => {
-        router.push(pathname || `/sources/${source.id}/alert-rules`)
-        notify(notifyAlertRuleCreated())
-      })
-      .catch(() => {
-        notify(notifyAlertRuleCreateFailed())
-      })
-  }
-
-  handleEdit = pathname => {
-    const {notify, queryConfigs, rule, router, source} = this.props
-    const updatedRule = Object.assign({}, rule, {
-      query: queryConfigs[rule.queryID],
-    })
-
-    editRule(updatedRule)
-      .then(() => {
-        router.push(pathname || `/sources/${source.id}/alert-rules`)
-        notify(notifyAlertRuleUpdated(rule.name))
-      })
-      .catch(e => {
-        notify(notifyAlertRuleUpdateFailed(rule.name, e.data.message))
-      })
-  }
-
-  handleSave = () => {
-    const {rule} = this.props
-    if (rule.id === DEFAULT_RULE_ID) {
-      this.handleCreate()
-    } else {
-      this.handleEdit()
-    }
-  }
-
-  handleSaveToConfig = configName => () => {
-    const {rule, configLink, router} = this.props
-    const pathname = `${configLink}#${configName}`
-    if (this.validationError()) {
-      router.push({
-        pathname,
-      })
-      return
-    }
-    if (rule.id === DEFAULT_RULE_ID) {
-      this.handleCreate(pathname)
-    } else {
-      this.handleEdit(pathname)
-    }
-  }
-
-  handleAddEvery = frequency => {
-    const {
-      rule: {id: ruleID},
-      ruleActions: {addEvery},
-    } = this.props
-    addEvery(ruleID, frequency)
-  }
-
-  handleRemoveEvery = () => {
-    const {
-      rule: {id: ruleID},
-      ruleActions: {removeEvery},
-    } = this.props
-    removeEvery(ruleID)
-  }
-
-  validationError = () => {
-    const {rule, query} = this.props
-    if (rule.trigger === 'deadman') {
-      return this.deadmanValidation()
-    }
-
-    if (!buildInfluxQLQuery({}, query)) {
-      return notifyAlertRuleRequiresQuery()
-    }
-
-    if (!rule.values.value) {
-      return notifyAlertRuleRequiresConditionValue()
-    }
-
-    return ''
-  }
-
-  deadmanValidation = () => {
-    const {query} = this.props
-    if (query && (!query.database || !query.measurement)) {
-      return notifyAlertRuleDeadmanInvalid()
-    }
-
-    return ''
-  }
-
-  handleRuleTypeDropdownChange = ({type, text}) => {
-    const {ruleActions, rule} = this.props
-    ruleActions.updateRuleValues(rule.id, rule.trigger, {
-      ...this.props.rule.values,
-      [type]: text,
-    })
-  }
-
-  handleRuleTypeInputChange = e => {
-    const {ruleActions, rule} = this.props
-    const {lower, upper} = e.target.form
-
-    ruleActions.updateRuleValues(rule.id, rule.trigger, {
-      ...this.props.rule.values,
-      value: lower.value,
-      rangeValue: upper ? upper.value : '',
-    })
-  }
-
-  handleDeadmanChange = ({text}) => {
-    const {ruleActions, rule} = this.props
-    ruleActions.updateRuleValues(rule.id, rule.trigger, {period: text})
-  }
-
-  render() {
+  public render() {
     const {
       rule,
       source,
@@ -226,27 +126,138 @@ class KapacitorRule extends Component {
       </div>
     )
   }
-}
 
-const {arrayOf, func, shape, string} = PropTypes
+  private handleChooseTimeRange = ({lower}: TimeRange) => {
+    const timeRange = timeRanges.find(range => range.lower === lower)
+    this.setState({timeRange})
+  }
 
-KapacitorRule.propTypes = {
-  source: shape({}).isRequired,
-  rule: shape({
-    values: shape({}),
-  }).isRequired,
-  query: shape({}).isRequired,
-  queryConfigs: shape({}).isRequired,
-  queryConfigActions: shape({}).isRequired,
-  ruleActions: shape({}).isRequired,
-  notify: func.isRequired,
-  ruleID: string.isRequired,
-  handlersFromConfig: arrayOf(shape({})).isRequired,
-  router: shape({
-    push: func.isRequired,
-  }).isRequired,
-  kapacitor: shape({}).isRequired,
-  configLink: string.isRequired,
+  private handleCreate = (pathname?: string) => {
+    const {notify, queryConfigs, rule, source, router, kapacitor} = this.props
+
+    const newRule = Object.assign({}, rule, {
+      query: queryConfigs[rule.queryID],
+    })
+    delete newRule.queryID
+
+    createRule(kapacitor, newRule)
+      .then(() => {
+        router.push(pathname || `/sources/${source.id}/alert-rules`)
+        notify(notifyAlertRuleCreated())
+      })
+      .catch(() => {
+        notify(notifyAlertRuleCreateFailed())
+      })
+  }
+
+  private handleEdit = (pathname?: string) => {
+    const {notify, queryConfigs, rule, router, source} = this.props
+    const updatedRule = Object.assign({}, rule, {
+      query: queryConfigs[rule.queryID],
+    })
+
+    editRule(updatedRule)
+      .then(() => {
+        router.push(pathname || `/sources/${source.id}/alert-rules`)
+        notify(notifyAlertRuleUpdated(rule.name))
+      })
+      .catch(e => {
+        notify(notifyAlertRuleUpdateFailed(rule.name, e.data.message))
+      })
+  }
+
+  private handleSave = () => {
+    const {rule} = this.props
+    if (rule.id === DEFAULT_RULE_ID) {
+      this.handleCreate()
+    } else {
+      this.handleEdit()
+    }
+  }
+
+  private handleSaveToConfig = (configName: string) => () => {
+    const {rule, configLink, router} = this.props
+    const pathname = `${configLink}#${configName}`
+
+    if (this.validationError()) {
+      router.push({
+        pathname,
+      })
+      return
+    }
+
+    if (rule.id === DEFAULT_RULE_ID) {
+      this.handleCreate(pathname)
+    } else {
+      this.handleEdit(pathname)
+    }
+  }
+
+  private handleAddEvery = frequency => {
+    const {
+      rule: {id: ruleID},
+      ruleActions: {addEvery},
+    } = this.props
+    addEvery(ruleID, frequency)
+  }
+
+  private handleRemoveEvery = () => {
+    const {
+      rule: {id: ruleID},
+      ruleActions: {removeEvery},
+    } = this.props
+    removeEvery(ruleID)
+  }
+
+  private get validationError(): string {
+    const {rule, query} = this.props
+    if (rule.trigger === 'deadman') {
+      return this.deadmanValidation()
+    }
+
+    if (!buildInfluxQLQuery({lower: ''}, query)) {
+      return notifyAlertRuleRequiresQuery()
+    }
+
+    if (!rule.values.value) {
+      return notifyAlertRuleRequiresConditionValue()
+    }
+
+    return ''
+  }
+
+  private deadmanValidation = () => {
+    const {query} = this.props
+    if (query && (!query.database || !query.measurement)) {
+      return notifyAlertRuleDeadmanInvalid()
+    }
+
+    return ''
+  }
+
+  private handleRuleTypeDropdownChange = ({type, text}) => {
+    const {ruleActions, rule} = this.props
+    ruleActions.updateRuleValues(rule.id, rule.trigger, {
+      ...this.props.rule.values,
+      [type]: text,
+    })
+  }
+
+  private handleRuleTypeInputChange = e => {
+    const {ruleActions, rule} = this.props
+    const {lower, upper} = e.target.form
+
+    ruleActions.updateRuleValues(rule.id, rule.trigger, {
+      ...this.props.rule.values,
+      value: lower.value,
+      rangeValue: upper ? upper.value : '',
+    })
+  }
+
+  private handleDeadmanChange = ({text}) => {
+    const {ruleActions, rule} = this.props
+    ruleActions.updateRuleValues(rule.id, rule.trigger, {period: text})
+  }
 }
 
 const mapDispatchToProps = dispatch => ({

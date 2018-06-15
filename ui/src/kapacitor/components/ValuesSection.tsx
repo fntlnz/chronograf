@@ -1,6 +1,4 @@
-import React from 'react'
-import PropTypes from 'prop-types'
-
+import React, {SFC} from 'react'
 import _ from 'lodash'
 
 import Deadman from 'src/kapacitor/components/Deadman'
@@ -9,7 +7,16 @@ import Relative from 'src/kapacitor/components/Relative'
 import DataSection from 'src/kapacitor/components/DataSection'
 import RuleGraph from 'src/kapacitor/components/RuleGraph'
 
-import {Tab, TabList, TabPanels, TabPanel, Tabs} from 'shared/components/Tabs'
+import {
+  Tab,
+  TabList,
+  TabPanels,
+  TabPanel,
+  Tabs,
+} from 'src/shared/components/Tabs'
+
+import {AlertRule, QueryConfig, Source, TimeRange} from 'src/types'
+import {KapacitorQueryConfigActions} from 'src/types/actions'
 
 const TABS = ['Threshold', 'Relative', 'Deadman']
 
@@ -22,13 +29,28 @@ const handleChooseTrigger = (rule, onChooseTrigger) => triggerIndex => {
 const initialIndex = rule => TABS.indexOf(_.startCase(rule.trigger))
 const isDeadman = rule => rule.trigger === 'deadman'
 
-const ValuesSection = ({
+interface Props {
+  rule: AlertRule
+  onChooseTrigger: () => void
+  onUpdateValues: () => void
+  query: QueryConfig
+  onDeadmanChange: () => void
+  onRuleTypeDropdownChange: () => void
+  onRuleTypeInputChange: () => void
+  onAddEvery: () => void
+  onRemoveEvery: () => void
+  timeRange: TimeRange
+  queryConfigActions: KapacitorQueryConfigActions
+  source: Source
+  onChooseTimeRange: () => void
+}
+
+const ValuesSection: SFC<Props> = ({
   rule,
   query,
   source,
   timeRange,
   onAddEvery,
-  onRemoveEvery,
   onChooseTrigger,
   onDeadmanChange,
   onChooseTimeRange,
@@ -58,7 +80,6 @@ const ValuesSection = ({
             isKapacitorRule={true}
             actions={queryConfigActions}
             onAddEvery={onAddEvery}
-            onRemoveEvery={onRemoveEvery}
             isDeadman={isDeadman(rule)}
           />
         </div>
@@ -96,25 +117,5 @@ const ValuesSection = ({
     </div>
   </div>
 )
-
-const {shape, string, func} = PropTypes
-
-ValuesSection.propTypes = {
-  rule: shape({
-    id: string,
-  }).isRequired,
-  onChooseTrigger: func.isRequired,
-  onUpdateValues: func.isRequired,
-  query: shape({}).isRequired,
-  onDeadmanChange: func.isRequired,
-  onRuleTypeDropdownChange: func.isRequired,
-  onRuleTypeInputChange: func.isRequired,
-  onAddEvery: func.isRequired,
-  onRemoveEvery: func.isRequired,
-  timeRange: shape({}).isRequired,
-  queryConfigActions: shape({}).isRequired,
-  source: shape({}).isRequired,
-  onChooseTimeRange: func.isRequired,
-}
 
 export default ValuesSection
